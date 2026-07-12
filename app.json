@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Water Bill Manager",
+    "slug": "water-bill-manager",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F5F7FA"
+    },
+    "userInterfaceStyle": "light",
+    "scheme": "waterbillmanager",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.waterbillmanager.app"
+    },
+    "android": {
+      "package": "com.waterbillmanager.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#E3F2FD",
+        "foregroundImage": "./assets/icon.png"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "experiments": {
+      "baseUrl": "/water-bill-manager"
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#F5F7FA"
+        }
+      ]
+    ]
+  }
+}
