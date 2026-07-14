@@ -17,7 +17,7 @@ import { useData } from '../context/DataContext';
 import { createBillingRecord, updateFlat, createTransaction } from '../firebase/firestore';
 import { todayString } from '../utils/dateRanges';
 import { colors } from '../theme/colors';
-import { formatINR, currentBillingMonth, shiftBillingMonth } from '../utils/format';
+import { formatINR, currentBillingMonth, shiftBillingMonth, billingMonthDiff } from '../utils/format';
 import { Flat } from '../types';
 
 type Step = 'select' | 'input' | 'review';
@@ -29,37 +29,57 @@ export default function BillingScreen() {
   const [step, setStep] = useState<Step>('select');
   const [selectedFlat, setSelectedFlat] = useState<Flat | null>(null);
   const [newReading, setNewReading] = useState('');
+  const [directUnits, setDirectUnits] = useState('');
   const [adjustment, setAdjustment] = useState(0);
   const [billingMonth, setBillingMonth] = useState(currentBillingMonth());
   const [saving, setSaving] = useState(false);
+
+  const monthDiff = billingMonthDiff(billingMonth);
+  const isPastMonth = monthDiff < 0;
+  const isFutureMonth = monthDiff > 0;
 
   const billedFlatIds = useMemo(() => {
     return new Set(billingHistory.filter((b) => b.billingMonth === billingMonth).map((b) => b.flatId));
   }, [billingHistory, billingMonth]);
 
   const minUnits = defaultSettings.minimumUnits ?? 0;
-  const consumed = selectedFlat ? Math.max(0, Number(newReading || 0) - selectedFlat.currentReading) : 0;
+  const consumed = isPastMonth
+    ? Math.max(0, Number(directUnits || 0))
+    : (selectedFlat ? Math.max(0, Number(newReading || 0) - selectedFlat.currentReading) : 0);
   const rawUnits = Math.max(0, consumed + adjustment);
   const totalUnits = minUnits > 0 ? Math.max(minUnits, rawUnits) : rawUnits;
   const minimumApplied = minUnits > 0 && rawUnits < minUnits;
   const totalBill = selectedFlat ? (totalUnits * selectedFlat.multiplier) + selectedFlat.offset : 0;
 
   function handleSelectFlat(flat: Flat) {
+    if (isFutureMonth) {
+      Alert.alert('Not allowed', 'Bills cannot be generated for future months.');
+      return;
+    }
     setSelectedFlat(flat);
     setNewReading('');
+    setDirectUnits('');
     setAdjustment(0);
     setStep('input');
   }
 
   function handleProceedToReview() {
-    const reading = Number(newReading);
-    if (!newReading || isNaN(reading)) {
-      Alert.alert('Invalid reading', 'Please enter a valid meter reading.');
-      return;
-    }
-    if (reading < (selectedFlat?.currentReading ?? 0)) {
-      Alert.alert('Invalid reading', 'New reading cannot be less than the current reading.');
-      return;
+    if (isPastMonth) {
+      const units = Number(directUnits);
+      if (!directUnits || isNaN(units) || units < 0) {
+        Alert.alert('Invalid units', 'Please enter the number of units consumed.');
+        return;
+      }
+    } else {
+      const reading = Number(newReading);
+      if (!newReading || isNaN(reading)) {
+        Alert.alert('Invalid reading', 'Please enter a valid meter reading.');
+        return;
+      }
+      if (reading < (selectedFlat?.currentReading ?? 0)) {
+        Alert.alert('Invalid reading', 'New reading cannot be less than the current reading.');
+        return;
+      }
     }
     setStep('review');
   }
@@ -68,14 +88,14 @@ export default function BillingScreen() {
     if (!selectedFlat || !user) return;
     setSaving(true);
     try {
-      const reading = Number(newReading);
+      const reading = isPastMonth ? 0 : Number(newReading);
       await createBillingRecord({
         userId: user.uid,
         flatId: selectedFlat.id,
         flatNumber: selectedFlat.flatNumber,
         residentName: selectedFlat.residentName,
         billingMonth,
-        previousReading: selectedFlat.currentReading,
+        previousReading: isPastMonth ? 0 : selectedFlat.currentReading,
         newReading: reading,
         unitsConsumed: consumed,
         adjustmentUnits: adjustment,
@@ -85,7 +105,7 @@ export default function BillingScreen() {
         totalBillAmount: totalBill,
       });
 
-      if (reading > selectedFlat.currentReading) {
+      if (!isPastMonth && reading > selectedFlat.currentReading) {
         await updateFlat(selectedFlat.id, { currentReading: reading });
       }
 
@@ -100,19 +120,31 @@ export default function BillingScreen() {
         remarks: `Water bill - ${billingMonth} (${totalUnits} units)`,
       });
 
+      const meterSection = isPastMonth
+        ? [
+            `📊 *Units Consumed*`,
+            `   Consumed: ${consumed} units`,
+            adjustment !== 0 ? `   Adjustment: ${adjustment > 0 ? '+' : ''}${adjustment} units` : null,
+            minimumApplied ? `   Minimum Units: ${minUnits} (applied)` : null,
+            `   Total Units: ${totalUnits}`,
+          ]
+        : [
+            `📊 *Meter Reading*`,
+            `   Previous: ${selectedFlat.currentReading}`,
+            `   Current:  ${reading}`,
+            `   Consumed: ${consumed} units`,
+            adjustment !== 0 ? `   Adjustment: ${adjustment > 0 ? '+' : ''}${adjustment} units` : null,
+            minimumApplied ? `   Minimum Units: ${minUnits} (applied)` : null,
+            `   Total Units: ${totalUnits}`,
+          ];
+
       const message = [
         `💧 *Water Bill - ${billingMonth}*`,
         ``,
         `🏠 Flat: *${selectedFlat.flatNumber}*`,
         `👤 Name: ${selectedFlat.residentName}`,
         ``,
-        `📊 *Meter Reading*`,
-        `   Previous: ${selectedFlat.currentReading}`,
-        `   Current:  ${reading}`,
-        `   Consumed: ${consumed} units`,
-        adjustment !== 0 ? `   Adjustment: ${adjustment > 0 ? '+' : ''}${adjustment} units` : null,
-        minimumApplied ? `   Minimum Units: ${minUnits} (applied)` : null,
-        `   Total Units: ${totalUnits}`,
+        ...meterSection,
         ``,
         `💰 *Bill Calculation*`,
         `   ${totalUnits} units × ₹${selectedFlat.multiplier} = ${formatINR(totalUnits * selectedFlat.multiplier)}`,
@@ -142,6 +174,7 @@ export default function BillingScreen() {
       setStep('select');
       setSelectedFlat(null);
       setNewReading('');
+      setDirectUnits('');
       setAdjustment(0);
     } catch (e: any) {
       Alert.alert('Error', e.message ?? 'Failed to generate bill.');
@@ -153,14 +186,14 @@ export default function BillingScreen() {
   function handleSaveOnly() {
     if (!selectedFlat || !user) return;
     setSaving(true);
-    const reading = Number(newReading);
+    const reading = isPastMonth ? 0 : Number(newReading);
     createBillingRecord({
       userId: user.uid,
       flatId: selectedFlat.id,
       flatNumber: selectedFlat.flatNumber,
       residentName: selectedFlat.residentName,
       billingMonth,
-      previousReading: selectedFlat.currentReading,
+      previousReading: isPastMonth ? 0 : selectedFlat.currentReading,
       newReading: reading,
       unitsConsumed: consumed,
       adjustmentUnits: adjustment,
@@ -169,7 +202,7 @@ export default function BillingScreen() {
       offset: selectedFlat.offset,
       totalBillAmount: totalBill,
     })
-      .then(() => reading > selectedFlat.currentReading ? updateFlat(selectedFlat.id, { currentReading: reading }) : Promise.resolve())
+      .then(() => (!isPastMonth && reading > selectedFlat.currentReading) ? updateFlat(selectedFlat.id, { currentReading: reading }) : Promise.resolve())
       .then(() => createTransaction({
         userId: user.uid,
         direction: 'debit',
@@ -185,6 +218,7 @@ export default function BillingScreen() {
         setStep('select');
         setSelectedFlat(null);
         setNewReading('');
+        setDirectUnits('');
         setAdjustment(0);
       })
       .catch((e: any) => Alert.alert('Error', e.message ?? 'Failed to save bill.'))
@@ -209,14 +243,18 @@ export default function BillingScreen() {
 
             <View style={styles.divider} />
 
-            <View style={styles.reviewRow}>
-              <Text style={styles.reviewLabel}>Previous Reading</Text>
-              <Text style={styles.reviewValue}>{selectedFlat.currentReading}</Text>
-            </View>
-            <View style={styles.reviewRow}>
-              <Text style={styles.reviewLabel}>New Reading</Text>
-              <Text style={styles.reviewValue}>{newReading}</Text>
-            </View>
+            {!isPastMonth && (
+              <>
+                <View style={styles.reviewRow}>
+                  <Text style={styles.reviewLabel}>Previous Reading</Text>
+                  <Text style={styles.reviewValue}>{selectedFlat.currentReading}</Text>
+                </View>
+                <View style={styles.reviewRow}>
+                  <Text style={styles.reviewLabel}>New Reading</Text>
+                  <Text style={styles.reviewValue}>{newReading}</Text>
+                </View>
+              </>
+            )}
             <View style={styles.reviewRow}>
               <Text style={styles.reviewLabel}>Units Consumed</Text>
               <Text style={styles.reviewValue}>{consumed}</Text>
@@ -288,7 +326,7 @@ export default function BillingScreen() {
           <TouchableOpacity onPress={() => setStep('select')}>
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.title}>Enter Reading</Text>
+          <Text style={styles.title}>{isPastMonth ? 'Enter Units' : 'Enter Reading'}</Text>
           <View style={{ width: 24 }} />
         </View>
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
@@ -297,26 +335,43 @@ export default function BillingScreen() {
               <Text style={styles.flatBadgeText}>{selectedFlat.flatNumber}</Text>
             </View>
             <Text style={styles.selectedFlatName}>{selectedFlat.residentName}</Text>
-            <Text style={styles.currentReadingLabel}>
-              Current Reading: <Text style={{ fontWeight: '700' }}>{selectedFlat.currentReading}</Text>
-            </Text>
+            {!isPastMonth && (
+              <Text style={styles.currentReadingLabel}>
+                Current Reading: <Text style={{ fontWeight: '700' }}>{selectedFlat.currentReading}</Text>
+              </Text>
+            )}
           </View>
 
-          <Text style={styles.inputLabel}>New Meter Reading</Text>
-          <TextInput
-            style={styles.input}
-            value={newReading}
-            onChangeText={setNewReading}
-            keyboardType="numeric"
-            placeholder={`Must be ≥ ${selectedFlat.currentReading}`}
-            placeholderTextColor={colors.textMuted}
-          />
-
-          {newReading !== '' && (
-            <View style={styles.consumedBadge}>
-              <Ionicons name="water-outline" size={16} color={colors.primary} />
-              <Text style={styles.consumedText}>Consumed: {consumed} units</Text>
-            </View>
+          {isPastMonth ? (
+            <>
+              <Text style={styles.inputLabel}>Units Consumed</Text>
+              <TextInput
+                style={styles.input}
+                value={directUnits}
+                onChangeText={setDirectUnits}
+                keyboardType="numeric"
+                placeholder="e.g. 18"
+                placeholderTextColor={colors.textMuted}
+              />
+            </>
+          ) : (
+            <>
+              <Text style={styles.inputLabel}>New Meter Reading</Text>
+              <TextInput
+                style={styles.input}
+                value={newReading}
+                onChangeText={setNewReading}
+                keyboardType="numeric"
+                placeholder={`Must be ≥ ${selectedFlat.currentReading}`}
+                placeholderTextColor={colors.textMuted}
+              />
+              {newReading !== '' && (
+                <View style={styles.consumedBadge}>
+                  <Ionicons name="water-outline" size={16} color={colors.primary} />
+                  <Text style={styles.consumedText}>Consumed: {consumed} units</Text>
+                </View>
+              )}
+            </>
           )}
 
           <Text style={styles.inputLabel}>Adjustment (+ / -)</Text>
@@ -408,6 +463,18 @@ export default function BillingScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 24 }}>
+        {isFutureMonth && (
+          <View style={styles.futureBanner}>
+            <Ionicons name="ban-outline" size={18} color={colors.debit} />
+            <Text style={styles.futureBannerText}>Bills cannot be generated for future months.</Text>
+          </View>
+        )}
+        {isPastMonth && (
+          <View style={styles.pastBanner}>
+            <Ionicons name="time-outline" size={18} color={colors.warning} />
+            <Text style={styles.pastBannerText}>Past month — you will enter consumed units directly.</Text>
+          </View>
+        )}
         {flats.length === 0 ? (
           <View style={styles.empty}>
             <Ionicons name="home-outline" size={48} color={colors.textMuted} />
@@ -531,6 +598,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     color: colors.text,
   },
+  futureBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#FFEBEE', borderRadius: 12,
+    padding: 12, marginBottom: 12,
+  },
+  futureBannerText: { flex: 1, fontSize: 13, color: colors.debit, fontWeight: '600' },
+  pastBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#FFF8E1', borderRadius: 12,
+    padding: 12, marginBottom: 12,
+  },
+  pastBannerText: { flex: 1, fontSize: 13, color: colors.warning, fontWeight: '600' },
   minimumNote: {
     flexDirection: 'row',
     alignItems: 'center',

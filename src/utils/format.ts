@@ -13,6 +13,15 @@ export function currentBillingMonth(): string {
   return now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
+export function billingMonthDiff(monthStr: string): number {
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const parts = monthStr.split(' ');
+  const monthIndex = monthNames.indexOf(parts[0]);
+  const year = parseInt(parts[parts.length - 1], 10);
+  const now = new Date();
+  return (year - now.getFullYear()) * 12 + (monthIndex - now.getMonth());
+}
+
 export function shiftBillingMonth(monthStr: string, delta: number): string {
   const parts = monthStr.split(' ');
   const year = parseInt(parts[parts.length - 1], 10);
