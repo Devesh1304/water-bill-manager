@@ -56,6 +56,10 @@ export default function BillingScreen() {
       Alert.alert('Not allowed', 'Bills cannot be generated for future months.');
       return;
     }
+    if (!isPastMonth && billedFlatIds.has(flat.id)) {
+      Alert.alert('Already billed', 'This flat is already billed for this month. Delete the existing bill from History tab to regenerate.');
+      return;
+    }
     setSelectedFlat(flat);
     setNewReading('');
     setDirectUnits('');
