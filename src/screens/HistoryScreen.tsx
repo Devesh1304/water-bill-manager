@@ -15,11 +15,14 @@ import { colors } from '../theme/colors';
 import { formatINR } from '../utils/format';
 import FilterPills from '../components/FilterPills';
 import ConfirmDialog from '../components/ConfirmDialog';
+import ExportModal from '../components/ExportModal';
+import { exportHistoryExcel, exportHistoryWord } from '../utils/exportReport';
 import { BillingRecord } from '../types';
 
 export default function HistoryScreen() {
   const { billingHistory } = useData();
   const [deleteTarget, setDeleteTarget] = useState<BillingRecord | undefined>();
+  const [showExport, setShowExport] = useState(false);
 
   const months = useMemo(() => {
     const set = new Set(billingHistory.map((b) => b.billingMonth));
@@ -87,7 +90,11 @@ export default function HistoryScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
+        <View style={{ width: 36 }} />
         <Text style={styles.title}>Billing History</Text>
+        <TouchableOpacity style={styles.exportBtn} onPress={() => setShowExport(true)}>
+          <Ionicons name="share-outline" size={20} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
       {months.length > 1 && (
@@ -118,6 +125,17 @@ export default function HistoryScreen() {
         />
       )}
 
+      <ExportModal
+        visible={showExport}
+        onClose={() => setShowExport(false)}
+        onExport={(format) => {
+          const label = selectedMonth === 'All' ? 'All_Months' : selectedMonth;
+          return format === 'excel'
+            ? exportHistoryExcel(filtered, label)
+            : exportHistoryWord(filtered, label);
+        }}
+      />
+
       <ConfirmDialog
         visible={!!deleteTarget}
         title="Delete Bill?"
@@ -132,13 +150,20 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, paddingTop: 20 },
   header: {
-    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: colors.topBar,
     borderBottomWidth: 1,
     borderBottomColor: colors.topBarBorder,
   },
-  title: { fontSize: 22, fontWeight: '700', color: colors.text },
+  title: { fontSize: 22, fontWeight: '700', color: colors.text, flex: 1, textAlign: 'center' },
+  exportBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center',
+  },
   totalBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',

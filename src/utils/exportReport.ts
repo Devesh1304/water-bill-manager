@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import * as XLSX from 'xlsx';
-import { Transaction } from '../types';
+import { Transaction, BillingRecord } from '../types';
 
 // ─── Platform-aware file share ────────────────────────────────────────────────
 
@@ -200,6 +200,93 @@ export async function exportAccountsWord(rows: AccountRow[]): Promise<void> {
   const base64 = btoa(unescape(encodeURIComponent(html)));
   const date = new Date().toISOString().slice(0, 10);
   await shareFile(base64, `accounts_${date}.doc`, 'application/msword');
+}
+
+// ─── Billing History ─────────────────────────────────────────────────────────
+
+export async function exportHistoryExcel(
+  records: BillingRecord[],
+  periodLabel: string
+): Promise<void> {
+  const data = records.map((r) => ({
+    Month: r.billingMonth,
+    'Flat No': r.flatNumber,
+    'Resident Name': r.residentName,
+    'Prev Reading': r.previousReading,
+    'New Reading': r.newReading,
+    'Units Consumed': r.unitsConsumed,
+    'Adjustment': r.adjustmentUnits,
+    'Total Units': r.totalUnits,
+    'Rate (₹/unit)': r.multiplier,
+    'Fixed Charge (₹)': r.offset,
+    'Total Amount (₹)': r.totalBillAmount.toFixed(2),
+  }));
+
+  const grandTotal = records.reduce((s, r) => s + r.totalBillAmount, 0);
+  data.push({} as any);
+  data.push({
+    Month: 'TOTAL', 'Flat No': `${records.length} bills`, 'Resident Name': '',
+    'Prev Reading': 0, 'New Reading': 0, 'Units Consumed': 0, 'Adjustment': 0,
+    'Total Units': records.reduce((s, r) => s + r.totalUnits, 0),
+    'Rate (₹/unit)': 0, 'Fixed Charge (₹)': 0,
+    'Total Amount (₹)': grandTotal.toFixed(2),
+  });
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws['!cols'] = [
+    { wch: 14 }, { wch: 10 }, { wch: 22 }, { wch: 12 }, { wch: 12 },
+    { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 16 }, { wch: 16 },
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Billing History');
+
+  const base64 = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+  await shareFile(base64, `history_${safeFilename(periodLabel)}.xlsx`,
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+}
+
+export async function exportHistoryWord(
+  records: BillingRecord[],
+  periodLabel: string
+): Promise<void> {
+  const grandTotal = records.reduce((s, r) => s + r.totalBillAmount, 0);
+
+  const rows = records.map((r) => `
+    <tr>
+      <td>${r.billingMonth}</td>
+      <td>${r.flatNumber}</td>
+      <td>${r.residentName}</td>
+      <td style="text-align:right">${r.previousReading}</td>
+      <td style="text-align:right">${r.newReading}</td>
+      <td style="text-align:right">${r.totalUnits}</td>
+      <td style="text-align:right">₹${r.totalBillAmount.toFixed(2)}</td>
+    </tr>`).join('');
+
+  const html = wordHtml(`
+    <h1 style="color:#1565C0">Water Bill Manager</h1>
+    <h2>Billing History — ${periodLabel}</h2>
+    <p style="color:#666;font-size:10pt">Generated: ${new Date().toLocaleDateString('en-IN')} · ${records.length} records</p>
+    <table>
+      <thead><tr>
+        <th>Month</th><th>Flat</th><th>Resident</th>
+        <th style="text-align:right">Prev</th>
+        <th style="text-align:right">New</th>
+        <th style="text-align:right">Units</th>
+        <th style="text-align:right">Amount</th>
+      </tr></thead>
+      <tbody>${rows || '<tr><td colspan="7" style="text-align:center;color:#999">No records</td></tr>'}</tbody>
+    </table>
+    <div class="summary">
+      <table style="background:transparent;margin:0;border:none">
+        <tr><td>Total Bills</td><td style="text-align:right;font-weight:bold">${records.length}</td></tr>
+        <tr><td>Total Units</td><td style="text-align:right;font-weight:bold">${records.reduce((s, r) => s + r.totalUnits, 0)}</td></tr>
+        <tr><td><b>Grand Total</b></td><td style="text-align:right;font-weight:bold;color:#1565C0">₹${grandTotal.toFixed(2)}</td></tr>
+      </table>
+    </div>
+  `);
+
+  const base64 = btoa(unescape(encodeURIComponent(html)));
+  await shareFile(base64, `history_${safeFilename(periodLabel)}.doc`, 'application/msword');
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
