@@ -1,10 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { colors } from '../theme/colors';
 import { formatINR, currentBillingMonth } from '../utils/format';
+import DefaultSettingsModal from '../components/DefaultSettingsModal';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -15,7 +16,8 @@ function getGreeting(): string {
 
 export default function HomeScreen({ navigation }: any) {
   const { user, signOut } = useAuth();
-  const { flats, billingHistory } = useData();
+  const { flats, billingHistory, defaultSettings } = useData();
+  const [settingsVisible, setSettingsVisible] = useState(false);
 
   const stats = useMemo(() => {
     const month = currentBillingMonth();
@@ -29,15 +31,21 @@ export default function HomeScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
+      <DefaultSettingsModal visible={settingsVisible} onClose={() => setSettingsVisible(false)} />
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
         <View style={styles.topBar}>
           <View>
             <Text style={styles.greeting}>{getGreeting()},</Text>
             <Text style={styles.name}>{user?.displayName || user?.email}</Text>
           </View>
-          <TouchableOpacity onPress={signOut} style={styles.logoutButton}>
-            <Ionicons name="log-out-outline" size={22} color={colors.textSecondary} />
-          </TouchableOpacity>
+          <View style={styles.topBarActions}>
+            <TouchableOpacity onPress={() => setSettingsVisible(true)} style={styles.topBarButton}>
+              <Ionicons name="settings-outline" size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={signOut} style={styles.topBarButton}>
+              <Ionicons name="log-out-outline" size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.heroCard}>
@@ -71,6 +79,19 @@ export default function HomeScreen({ navigation }: any) {
             <Text style={styles.statLabel}>Units This Month</Text>
           </View>
         </View>
+
+        <TouchableOpacity style={styles.settingsRow} onPress={() => setSettingsVisible(true)}>
+          <View style={styles.settingsIcon}>
+            <Ionicons name="settings-outline" size={18} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.settingsLabel}>Billing Defaults</Text>
+            <Text style={styles.settingsValue}>
+              ₹{defaultSettings.multiplier}/unit · Fixed ₹{defaultSettings.offset}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+        </TouchableOpacity>
 
         <View style={styles.quickRow}>
           <TouchableOpacity style={styles.quickButton} onPress={() => navigation.navigate('Flats')}>
@@ -125,7 +146,11 @@ const styles = StyleSheet.create({
   },
   greeting: { color: colors.textMuted, fontSize: 14 },
   name: { color: colors.text, fontSize: 22, fontWeight: '700', marginTop: 2 },
-  logoutButton: {
+  topBarActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  topBarButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -133,6 +158,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  settingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 16,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    padding: 14,
+    gap: 12,
+    elevation: 1,
+  },
+  settingsIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingsLabel: { fontSize: 12, color: colors.textMuted, fontWeight: '500' },
+  settingsValue: { fontSize: 14, color: colors.text, fontWeight: '600', marginTop: 2 },
   heroCard: {
     marginHorizontal: 16,
     backgroundColor: colors.primary,

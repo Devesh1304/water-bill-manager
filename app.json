@@ -27,8 +27,15 @@
       "intentFilters": [
         {
           "action": "VIEW",
-          "data": [{ "scheme": "whatsapp" }],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "data": [
+            {
+              "scheme": "whatsapp"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -48,7 +55,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#F5F7FA"
         }
-      ]
+      ],
+      "expo-sharing"
     ]
   }
 }

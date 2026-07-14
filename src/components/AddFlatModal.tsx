@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { useData } from '../context/DataContext';
 import { createFlat, updateFlat } from '../firebase/firestore';
 import { colors } from '../theme/colors';
 import { Flat } from '../types';
@@ -25,6 +26,7 @@ interface Props {
 
 export default function AddFlatModal({ visible, onClose, existingFlat }: Props) {
   const { user } = useAuth();
+  const { defaultSettings } = useData();
   const isEditing = !!existingFlat;
 
   const [flatNumber, setFlatNumber] = useState('');
@@ -48,10 +50,10 @@ export default function AddFlatModal({ visible, onClose, existingFlat }: Props) 
       setResidentName('');
       setWhatsappNumber('');
       setCurrentReading('0');
-      setMultiplier('');
-      setOffset('0');
+      setMultiplier(defaultSettings.multiplier > 0 ? String(defaultSettings.multiplier) : '');
+      setOffset(String(defaultSettings.offset));
     }
-  }, [existingFlat, visible]);
+  }, [existingFlat, visible, defaultSettings]);
 
   async function handleSave() {
     if (!flatNumber.trim()) {

@@ -17,7 +17,7 @@ import { useData } from '../context/DataContext';
 import { createBillingRecord, updateFlat, createTransaction } from '../firebase/firestore';
 import { todayString } from '../utils/dateRanges';
 import { colors } from '../theme/colors';
-import { formatINR, currentBillingMonth } from '../utils/format';
+import { formatINR, currentBillingMonth, shiftBillingMonth } from '../utils/format';
 import { Flat } from '../types';
 
 type Step = 'select' | 'input' | 'review';
@@ -34,9 +34,8 @@ export default function BillingScreen() {
   const [saving, setSaving] = useState(false);
 
   const billedFlatIds = useMemo(() => {
-    const month = currentBillingMonth();
-    return new Set(billingHistory.filter((b) => b.billingMonth === month).map((b) => b.flatId));
-  }, [billingHistory]);
+    return new Set(billingHistory.filter((b) => b.billingMonth === billingMonth).map((b) => b.flatId));
+  }, [billingHistory, billingMonth]);
 
   const consumed = selectedFlat ? Math.max(0, Number(newReading || 0) - selectedFlat.currentReading) : 0;
   const totalUnits = Math.max(0, consumed + adjustment);
@@ -83,7 +82,9 @@ export default function BillingScreen() {
         totalBillAmount: totalBill,
       });
 
-      await updateFlat(selectedFlat.id, { currentReading: reading });
+      if (reading > selectedFlat.currentReading) {
+        await updateFlat(selectedFlat.id, { currentReading: reading });
+      }
 
       await createTransaction({
         userId: user.uid,
@@ -164,7 +165,7 @@ export default function BillingScreen() {
       offset: selectedFlat.offset,
       totalBillAmount: totalBill,
     })
-      .then(() => updateFlat(selectedFlat.id, { currentReading: reading }))
+      .then(() => reading > selectedFlat.currentReading ? updateFlat(selectedFlat.id, { currentReading: reading }) : Promise.resolve())
       .then(() => createTransaction({
         userId: user.uid,
         direction: 'debit',
@@ -291,15 +292,6 @@ export default function BillingScreen() {
             </Text>
           </View>
 
-          <Text style={styles.inputLabel}>Billing Month</Text>
-          <TextInput
-            style={styles.input}
-            value={billingMonth}
-            onChangeText={setBillingMonth}
-            placeholder="e.g. July 2026"
-            placeholderTextColor={colors.textMuted}
-          />
-
           <Text style={styles.inputLabel}>New Meter Reading</Text>
           <TextInput
             style={styles.input}
@@ -382,6 +374,23 @@ export default function BillingScreen() {
         <Text style={styles.title}>Generate Bill</Text>
         <View style={{ width: 24 }} />
       </View>
+
+      <View style={styles.monthNav}>
+        <TouchableOpacity
+          style={styles.monthNavBtn}
+          onPress={() => setBillingMonth((m) => shiftBillingMonth(m, -1))}
+        >
+          <Ionicons name="chevron-back" size={20} color={colors.primary} />
+        </TouchableOpacity>
+        <Text style={styles.monthNavText}>{billingMonth}</Text>
+        <TouchableOpacity
+          style={styles.monthNavBtn}
+          onPress={() => setBillingMonth((m) => shiftBillingMonth(m, 1))}
+        >
+          <Ionicons name="chevron-forward" size={20} color={colors.primary} />
+        </TouchableOpacity>
+      </View>
+
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 24 }}>
         {flats.length === 0 ? (
           <View style={styles.empty}>
@@ -440,6 +449,29 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.topBarBorder,
   },
   title: { fontSize: 22, fontWeight: '700', color: colors.text, flex: 1, textAlign: 'center' },
+  monthNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  monthNavBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  monthNavText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
   selectCard: {
     flexDirection: 'row',
     alignItems: 'center',

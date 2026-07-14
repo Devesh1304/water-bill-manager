@@ -5,26 +5,30 @@ import { useData } from '../context/DataContext';
 import { colors } from '../theme/colors';
 import { formatINR } from '../utils/format';
 import AccountRow from '../components/AccountRow';
+import ExportModal from '../components/ExportModal';
+import { exportAccountsExcel, exportAccountsWord } from '../utils/exportReport';
 
 export default function AccountsScreen({ navigation }: any) {
   const { flats, transactions } = useData();
   const [search, setSearch] = useState('');
+  const [showExport, setShowExport] = useState(false);
 
-  const rows = useMemo(() => {
-    let flatList = flats;
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      flatList = flatList.filter(
-        (f) => f.flatNumber.toLowerCase().includes(q) || f.residentName.toLowerCase().includes(q)
-      );
-    }
-    return flatList.map((flat) => {
+  const allRows = useMemo(() => {
+    return flats.map((flat) => {
       const flatTxns = transactions.filter((t) => t.flatId === flat.id);
       const credit = flatTxns.filter((t) => t.direction === 'credit').reduce((s, t) => s + t.amount, 0);
       const debit = flatTxns.filter((t) => t.direction === 'debit').reduce((s, t) => s + t.amount, 0);
       return { flat, balance: credit - debit, credit, debit };
     });
-  }, [flats, transactions, search]);
+  }, [flats, transactions]);
+
+  const rows = useMemo(() => {
+    if (!search.trim()) return allRows;
+    const q = search.trim().toLowerCase();
+    return allRows.filter(
+      (r) => r.flat.flatNumber.toLowerCase().includes(q) || r.flat.residentName.toLowerCase().includes(q)
+    );
+  }, [allRows, search]);
 
   const totalDue = rows.filter((r) => r.balance < 0).reduce((s, r) => s + Math.abs(r.balance), 0);
   const totalReceived = rows.reduce((s, r) => s + r.credit, 0);
@@ -32,7 +36,11 @@ export default function AccountsScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.topBar}>
+        <View style={{ width: 36 }} />
         <Text style={styles.title}>Accounts</Text>
+        <TouchableOpacity style={styles.exportBtn} onPress={() => setShowExport(true)}>
+          <Ionicons name="share-outline" size={20} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.summaryCard}>
@@ -65,6 +73,16 @@ export default function AccountsScreen({ navigation }: any) {
         )}
       </View>
 
+      <ExportModal
+        visible={showExport}
+        onClose={() => setShowExport(false)}
+        onExport={(format) =>
+          format === 'excel'
+            ? exportAccountsExcel(allRows)
+            : exportAccountsWord(allRows)
+        }
+      />
+
       <FlatList
         data={rows}
         keyExtractor={(item) => item.flat.id}
@@ -92,6 +110,9 @@ export default function AccountsScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, paddingTop: 20 },
   topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: colors.topBar,
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -99,7 +120,11 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.topBarBorder,
     marginBottom: 8,
   },
-  title: { fontSize: 22, fontWeight: '700', textAlign: 'center', color: colors.text },
+  title: { fontSize: 22, fontWeight: '700', textAlign: 'center', color: colors.text, flex: 1 },
+  exportBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center',
+  },
   summaryCard: {
     marginHorizontal: 12,
     marginBottom: 10,

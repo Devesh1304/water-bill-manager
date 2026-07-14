@@ -33,6 +33,11 @@ export interface DateRange {
   end: string;
 }
 
+export interface DefaultSettings {
+  multiplier: number;
+  offset: number;
+}
+
 export interface Transaction {
   id: string;
   userId: string;

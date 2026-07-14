@@ -6,13 +6,13 @@ import {
   doc,
   query,
   where,
-  orderBy,
+  setDoc,
   onSnapshot,
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
 import { db } from './config';
-import { Flat, BillingRecord, Transaction, Direction } from '../types';
+import { Flat, BillingRecord, Transaction, Direction, DefaultSettings } from '../types';
 
 function toMillis(value: any): number {
   if (value instanceof Timestamp) return value.toMillis();
@@ -114,6 +114,25 @@ export function listenToBillingHistory(
       })
       .sort((a, b) => b.timestamp - a.timestamp);
     callback(records);
+  });
+}
+
+// ---------- Default Settings ----------
+
+export async function saveDefaultSettings(userId: string, settings: DefaultSettings): Promise<void> {
+  await setDoc(doc(db, 'settings', userId), settings);
+}
+
+export function listenToDefaultSettings(
+  userId: string,
+  callback: (settings: DefaultSettings) => void
+): () => void {
+  return onSnapshot(doc(db, 'settings', userId), (snap) => {
+    if (snap.exists()) {
+      callback(snap.data() as DefaultSettings);
+    } else {
+      callback({ multiplier: 0, offset: 0 });
+    }
   });
 }
 
