@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
+import { Platform } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { createBillingRecord, updateFlat, createTransaction } from '../firebase/firestore';
@@ -118,14 +119,18 @@ export default function BillingScreen() {
       ].filter(Boolean).join('\n');
 
       const phone = selectedFlat.whatsappNumber.replace(/[^0-9]/g, '');
-      const url = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(message)}`;
+      const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 
-      const canOpen = await Linking.canOpenURL(url);
-      if (canOpen) {
-        await Linking.openURL(url);
+      if (Platform.OS === 'web') {
+        window.open(waUrl, '_blank');
       } else {
-        const webUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-        await Linking.openURL(webUrl);
+        const nativeUrl = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(message)}`;
+        try {
+          const canOpen = await Linking.canOpenURL(nativeUrl);
+          await Linking.openURL(canOpen ? nativeUrl : waUrl);
+        } catch {
+          await Linking.openURL(waUrl);
+        }
       }
 
       Alert.alert('Bill Generated', `Bill for Flat ${selectedFlat.flatNumber} has been saved.`);
