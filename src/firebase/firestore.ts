@@ -12,7 +12,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from './config';
-import { Flat, BillingRecord } from '../types';
+import { Flat, BillingRecord, Transaction, Direction } from '../types';
 
 function toMillis(value: any): number {
   if (value instanceof Timestamp) return value.toMillis();
@@ -114,5 +114,47 @@ export function listenToBillingHistory(
       })
       .sort((a, b) => b.timestamp - a.timestamp);
     callback(records);
+  });
+}
+
+// ---------- Transactions ----------
+
+export interface TransactionInput {
+  userId: string;
+  direction: Direction;
+  date: string;
+  amount: number;
+  flatId: string;
+  flatNumber: string;
+  residentName: string;
+  remarks: string;
+}
+
+export async function createTransaction(input: TransactionInput): Promise<void> {
+  await addDoc(collection(db, 'transactions'), {
+    ...input,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function deleteTransaction(id: string): Promise<void> {
+  await deleteDoc(doc(db, 'transactions', id));
+}
+
+export function listenToTransactions(
+  userId: string,
+  callback: (transactions: Transaction[]) => void
+): () => void {
+  const q = query(collection(db, 'transactions'), where('userId', '==', userId));
+  return onSnapshot(q, (snap) => {
+    const transactions = snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        ...data,
+        createdAt: toMillis(data.createdAt),
+      } as Transaction;
+    });
+    callback(transactions);
   });
 }

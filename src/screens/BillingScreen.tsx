@@ -13,7 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
-import { createBillingRecord, updateFlat } from '../firebase/firestore';
+import { createBillingRecord, updateFlat, createTransaction } from '../firebase/firestore';
+import { todayString } from '../utils/dateRanges';
 import { colors } from '../theme/colors';
 import { formatINR, currentBillingMonth } from '../utils/format';
 import { Flat } from '../types';
@@ -83,6 +84,17 @@ export default function BillingScreen() {
 
       await updateFlat(selectedFlat.id, { currentReading: reading });
 
+      await createTransaction({
+        userId: user.uid,
+        direction: 'debit',
+        date: todayString(),
+        amount: totalBill,
+        flatId: selectedFlat.id,
+        flatNumber: selectedFlat.flatNumber,
+        residentName: selectedFlat.residentName,
+        remarks: `Water bill - ${billingMonth} (${totalUnits} units)`,
+      });
+
       const message = [
         `💧 *Water Bill - ${billingMonth}*`,
         ``,
@@ -148,6 +160,16 @@ export default function BillingScreen() {
       totalBillAmount: totalBill,
     })
       .then(() => updateFlat(selectedFlat.id, { currentReading: reading }))
+      .then(() => createTransaction({
+        userId: user.uid,
+        direction: 'debit',
+        date: todayString(),
+        amount: totalBill,
+        flatId: selectedFlat.id,
+        flatNumber: selectedFlat.flatNumber,
+        residentName: selectedFlat.residentName,
+        remarks: `Water bill - ${billingMonth} (${totalUnits} units)`,
+      }))
       .then(() => {
         Alert.alert('Saved', `Bill for Flat ${selectedFlat.flatNumber} saved without sending WhatsApp.`);
         setStep('select');

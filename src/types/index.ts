@@ -24,3 +24,24 @@ export interface BillingRecord {
   totalBillAmount: number;
   timestamp: number;
 }
+
+export type Direction = 'credit' | 'debit';
+export type DateFilter = 'today' | 'week' | 'month' | 'custom';
+
+export interface DateRange {
+  start: string;
+  end: string;
+}
+
+export interface Transaction {
+  id: string;
+  userId: string;
+  direction: Direction;
+  date: string;
+  amount: number;
+  flatId: string;
+  flatNumber: string;
+  residentName: string;
+  remarks: string;
+  createdAt: number;
+}
