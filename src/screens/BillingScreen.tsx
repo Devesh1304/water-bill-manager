@@ -24,7 +24,7 @@ type Step = 'select' | 'input' | 'review';
 
 export default function BillingScreen() {
   const { user } = useAuth();
-  const { flats, billingHistory } = useData();
+  const { flats, billingHistory, defaultSettings } = useData();
 
   const [step, setStep] = useState<Step>('select');
   const [selectedFlat, setSelectedFlat] = useState<Flat | null>(null);
@@ -37,8 +37,11 @@ export default function BillingScreen() {
     return new Set(billingHistory.filter((b) => b.billingMonth === billingMonth).map((b) => b.flatId));
   }, [billingHistory, billingMonth]);
 
+  const minUnits = defaultSettings.minimumUnits ?? 0;
   const consumed = selectedFlat ? Math.max(0, Number(newReading || 0) - selectedFlat.currentReading) : 0;
-  const totalUnits = Math.max(0, consumed + adjustment);
+  const rawUnits = Math.max(0, consumed + adjustment);
+  const totalUnits = minUnits > 0 ? Math.max(minUnits, rawUnits) : rawUnits;
+  const minimumApplied = minUnits > 0 && rawUnits < minUnits;
   const totalBill = selectedFlat ? (totalUnits * selectedFlat.multiplier) + selectedFlat.offset : 0;
 
   function handleSelectFlat(flat: Flat) {
@@ -108,6 +111,7 @@ export default function BillingScreen() {
         `   Current:  ${reading}`,
         `   Consumed: ${consumed} units`,
         adjustment !== 0 ? `   Adjustment: ${adjustment > 0 ? '+' : ''}${adjustment} units` : null,
+        minimumApplied ? `   Minimum Units: ${minUnits} (applied)` : null,
         `   Total Units: ${totalUnits}`,
         ``,
         `💰 *Bill Calculation*`,
@@ -229,6 +233,12 @@ export default function BillingScreen() {
               <Text style={styles.reviewLabel}>Total Units</Text>
               <Text style={[styles.reviewValue, { fontWeight: '800' }]}>{totalUnits}</Text>
             </View>
+            {minimumApplied && (
+              <View style={styles.minimumNote}>
+                <Ionicons name="information-circle-outline" size={14} color={colors.warning} />
+                <Text style={styles.minimumNoteText}>Minimum {minUnits} units applied</Text>
+              </View>
+            )}
 
             <View style={styles.divider} />
 
@@ -351,6 +361,12 @@ export default function BillingScreen() {
               <Text style={[styles.summaryLabel, { fontWeight: '700' }]}>Total Units</Text>
               <Text style={[styles.summaryValue, { fontWeight: '800', fontSize: 18 }]}>{totalUnits}</Text>
             </View>
+            {minimumApplied && (
+              <View style={styles.minimumNote}>
+                <Ionicons name="information-circle-outline" size={14} color={colors.warning} />
+                <Text style={styles.minimumNoteText}>Minimum {minUnits} units applied</Text>
+              </View>
+            )}
             <View style={[styles.summaryRow, { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, marginTop: 4 }]}>
               <Text style={[styles.summaryLabel, { fontWeight: '700' }]}>Estimated Bill</Text>
               <Text style={[styles.summaryValue, { fontWeight: '800', fontSize: 18, color: colors.primary }]}>
@@ -515,6 +531,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     color: colors.text,
   },
+  minimumNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#FFF8E1',
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  minimumNoteText: { fontSize: 12, color: colors.warning, fontWeight: '600' },
   consumedBadge: {
     flexDirection: 'row',
     alignItems: 'center',

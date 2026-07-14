@@ -14,7 +14,7 @@ const DataContext = createContext<DataContextType>({
   flats: [],
   billingHistory: [],
   transactions: [],
-  defaultSettings: { multiplier: 0, offset: 0 },
+  defaultSettings: { multiplier: 0, offset: 0, minimumUnits: 0 },
 });
 export const useData = () => useContext(DataContext);
 
@@ -23,7 +23,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [flats, setFlats] = useState<Flat[]>([]);
   const [billingHistory, setBillingHistory] = useState<BillingRecord[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [defaultSettings, setDefaultSettings] = useState<DefaultSettings>({ multiplier: 0, offset: 0 });
+  const [defaultSettings, setDefaultSettings] = useState<DefaultSettings>({ multiplier: 0, offset: 0, minimumUnits: 0 });
 
   useEffect(() => {
     if (!user) {

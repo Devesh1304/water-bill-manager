@@ -128,11 +128,8 @@ export function listenToDefaultSettings(
   callback: (settings: DefaultSettings) => void
 ): () => void {
   return onSnapshot(doc(db, 'settings', userId), (snap) => {
-    if (snap.exists()) {
-      callback(snap.data() as DefaultSettings);
-    } else {
-      callback({ multiplier: 0, offset: 0 });
-    }
+    const defaults: DefaultSettings = { multiplier: 0, offset: 0, minimumUnits: 0 };
+    callback(snap.exists() ? { ...defaults, ...snap.data() } as DefaultSettings : defaults);
   });
 }
 

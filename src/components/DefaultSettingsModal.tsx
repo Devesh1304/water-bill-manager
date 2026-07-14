@@ -26,12 +26,14 @@ export default function DefaultSettingsModal({ visible, onClose }: Props) {
   const { defaultSettings } = useData();
   const [multiplier, setMultiplier] = useState('');
   const [offset, setOffset] = useState('');
+  const [minimumUnits, setMinimumUnits] = useState('0');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (visible) {
       setMultiplier(defaultSettings.multiplier > 0 ? String(defaultSettings.multiplier) : '');
       setOffset(String(defaultSettings.offset));
+      setMinimumUnits(String(defaultSettings.minimumUnits ?? 0));
     }
   }, [visible, defaultSettings]);
 
@@ -47,6 +49,7 @@ export default function DefaultSettingsModal({ visible, onClose }: Props) {
       await saveDefaultSettings(user.uid, {
         multiplier: mult,
         offset: parseFloat(offset) || 0,
+        minimumUnits: parseFloat(minimumUnits) || 0,
       });
       onClose();
     } catch (e: any) {
@@ -93,6 +96,16 @@ export default function DefaultSettingsModal({ visible, onClose }: Props) {
             keyboardType="numeric"
             value={offset}
             onChangeText={setOffset}
+          />
+
+          <Text style={styles.label}>Minimum Units</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="0 (no minimum)"
+            placeholderTextColor={colors.textMuted}
+            keyboardType="numeric"
+            value={minimumUnits}
+            onChangeText={setMinimumUnits}
           />
 
           <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving}>

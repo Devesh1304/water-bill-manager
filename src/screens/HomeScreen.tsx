@@ -88,6 +88,7 @@ export default function HomeScreen({ navigation }: any) {
             <Text style={styles.settingsLabel}>Billing Defaults</Text>
             <Text style={styles.settingsValue}>
               ₹{defaultSettings.multiplier}/unit · Fixed ₹{defaultSettings.offset}
+              {defaultSettings.minimumUnits > 0 ? ` · Min ${defaultSettings.minimumUnits} units` : ''}
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />

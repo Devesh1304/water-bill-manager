@@ -36,6 +36,7 @@ export interface DateRange {
 export interface DefaultSettings {
   multiplier: number;
   offset: number;
+  minimumUnits: number;
 }
 
 export interface Transaction {
