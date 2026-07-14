@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, FlatList } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, FlatList, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useData } from '../context/DataContext';
+import { deleteFlat } from '../firebase/firestore';
 import { colors } from '../theme/colors';
 import { formatINR } from '../utils/format';
 import AccountRow from '../components/AccountRow';
@@ -99,6 +100,16 @@ export default function AccountsScreen({ navigation }: any) {
               flatNumber: item.flat.flatNumber,
               residentName: item.flat.residentName,
             })}
+            onDelete={() =>
+              Alert.alert(
+                'Delete Flat?',
+                `Remove Flat ${item.flat.flatNumber} (${item.flat.residentName})? This cannot be undone.`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Delete', style: 'destructive', onPress: () => deleteFlat(item.flat.id) },
+                ]
+              )
+            }
           />
         )}
         ListEmptyComponent={<Text style={styles.empty}>No flats yet.</Text>}

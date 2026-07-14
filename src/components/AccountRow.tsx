@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { formatINR } from '../utils/format';
 
@@ -10,10 +11,12 @@ interface Props {
   credit: number;
   debit: number;
   onPress: () => void;
+  onDelete?: () => void;
 }
 
-export default function AccountRow({ flatNumber, residentName, balance, credit, debit, onPress }: Props) {
+export default function AccountRow({ flatNumber, residentName, balance, credit, debit, onPress, onDelete }: Props) {
   const positive = balance >= 0;
+  const hasNoEntries = credit === 0 && debit === 0;
 
   return (
     <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.7}>
@@ -23,15 +26,25 @@ export default function AccountRow({ flatNumber, residentName, balance, credit, 
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={1}>{residentName}</Text>
         <Text style={styles.subtext}>
-          Paid: {formatINR(credit)}  |  Billed: {formatINR(debit)}
+          {hasNoEntries ? 'No transactions yet' : `Paid: ${formatINR(credit)}  |  Billed: ${formatINR(debit)}`}
         </Text>
       </View>
-      <View style={styles.balanceContainer}>
-        <Text style={[styles.balance, positive ? styles.positive : styles.negative]}>
-          {formatINR(balance)}
-        </Text>
-        <Text style={styles.balanceLabel}>{positive ? (balance === 0 ? 'Settled' : 'Overpaid') : 'Due'}</Text>
-      </View>
+      {hasNoEntries && onDelete ? (
+        <TouchableOpacity
+          style={styles.deleteBtn}
+          onPress={(e) => { e.stopPropagation?.(); onDelete(); }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="trash-outline" size={18} color={colors.debit} />
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.balanceContainer}>
+          <Text style={[styles.balance, positive ? styles.positive : styles.negative]}>
+            {formatINR(balance)}
+          </Text>
+          <Text style={styles.balanceLabel}>{positive ? (balance === 0 ? 'Settled' : 'Overpaid') : 'Due'}</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -66,4 +79,9 @@ const styles = StyleSheet.create({
   balanceLabel: { fontSize: 10, color: colors.textMuted, marginTop: 2 },
   positive: { color: colors.credit },
   negative: { color: colors.debit },
+  deleteBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: colors.debitBg,
+    alignItems: 'center', justifyContent: 'center',
+  },
 });
