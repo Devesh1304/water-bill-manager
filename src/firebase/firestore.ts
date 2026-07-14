@@ -153,6 +153,13 @@ export async function createTransaction(input: TransactionInput): Promise<void> 
   });
 }
 
+export async function updateTransaction(
+  id: string,
+  input: Partial<Pick<TransactionInput, 'date' | 'amount' | 'remarks'>>
+): Promise<void> {
+  await updateDoc(doc(db, 'transactions', id), input);
+}
+
 export async function deleteTransaction(id: string): Promise<void> {
   await deleteDoc(doc(db, 'transactions', id));
 }
